@@ -151,12 +151,12 @@ def make_lines(lines):
 
     c_points = points(line_si, lines, vertical_lines)
 
-    if l_points != None and u_points != None:
+    if l_points != None and u_points != None and c_points != None:
 
         x1, y1, x2, y2 = u_points[0][0], u_points[0][1], u_points[1][0], u_points[1][1]
 
         X1, Y1, X2, Y2 = l_points[0][0], l_points[0][1], l_points[1][0], l_points[1][1]
-        # mx1, my1, mx2, and my2 are the coordinates for the extremes of the center line
+        # Center coordinates
         mx1 = int(x1+X1)/2
 
         my1 = int(y1+Y1)/2
@@ -165,7 +165,38 @@ def make_lines(lines):
 
         my2 = int(y2+Y2)/2
 
-        c_points = ((int(mx1), int(my1)), (int(mx2), int(my2)))
+        min_x, max_x, min_y, max_y = extremes_for_lines(line_si, lines)
+
+        m1, b1 = average_slope_intercept(upper_line)
+
+        m2, b2 = average_slope_intercept(lower_line)
+        # Case if the upper and lower lines are not parallel
+        if abs(m1-m2) > 6:
+            # Normalization
+            n1 = 1/(math.sqrt(m1*m1+1))
+
+            n2 = 1/(math.sqrt(m2*m2+1))
+
+            center_slope = (n2*m2-n1*m1)/(n2-n1)
+            
+            if m1 > m2:
+
+                center_slope = -1/center_slope
+
+            center_intercept = (n2*b2-n1*b1)/(n2-n1)
+            
+            mx1 = min_x
+
+            mx2 = max_x
+
+            my1 = mx1*center_slope+center_intercept
+
+            my2 = mx2*center_slope+center_intercept
+
+            c_points = ((int(mx1), int(my1)), (int(mx2), int(my2)))
+
+        else:
+            c_points = ((int(mx1), int(my1)), (int(mx2), int(my2)))
 
     return u_points, l_points, c_points
 
@@ -206,7 +237,7 @@ def frame_processor(img):
 
     canny_img = cv.Canny(img, 50, 200, None, 3)
     #https://www.learningaboutelectronics.com/Articles/Region-of-interest-in-an-image-Python-OpenCV.php used to create a square region of interest
-    vertices = np.array([[(100, 100), (400, 100), (400,400), (100, 400)]], dtype=np.int32)
+    vertices = np.array([[(100, 100), (500, 100), (500,400), (100, 400)]], dtype=np.int32)
 
     mask = np.zeros_like(canny_img)
 
