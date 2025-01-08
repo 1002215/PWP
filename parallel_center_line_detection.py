@@ -237,7 +237,7 @@ def frame_processor(img):
 
     canny_img = cv.Canny(img, 50, 200, None, 3)
     #https://www.learningaboutelectronics.com/Articles/Region-of-interest-in-an-image-Python-OpenCV.php used to create a square region of interest
-    vertices = np.array([[(100, 100), (500, 100), (500,400), (100, 400)]], dtype=np.int32)
+    vertices = np.array([[(100, 100), (400, 100), (400,400), (100, 400)]], dtype=np.int32)
 
     mask = np.zeros_like(canny_img)
 
