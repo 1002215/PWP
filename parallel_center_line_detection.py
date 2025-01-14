@@ -3,6 +3,8 @@ import numpy as np
 import math
 
 #Emma Chetan Parallel Line and Finding Center Line PWP H
+# Kernel size 3
+# Change minlinegap to 200 still not working
 
 
 # Return the average slope and average intercept given an array of tuples with format (index, slope, intercept)
