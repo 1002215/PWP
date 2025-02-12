@@ -2,40 +2,43 @@ import cv2 as cv
 import numpy as np
 import math
 
-#Emma Chetan Parallel Line and Finding Center Line PWP H
+
+# Emma Chetan Parallel Line and Finding Center Line PWP H
 # Kernel size 3
 # Change minlinegap to 200 still not working
 
+def interested_region(img, vertices):
+    if len(img.shape) > 2:
+        mask_color_ignore = (255,) * img.shape[2]
+    else:
+        mask_color_ignore = 255
 
+    cv.fillPoly(np.zeros_like(img), vertices, mask_color_ignore)
+    return cv.bitwise_and(img, np.zeros_like(img))
 # Return the average slope and average intercept given an array of tuples with format (index, slope, intercept)
 def average_slope_intercept(lines_si):
-
     average_slope = 0
 
     average_intercept = 0
 
     if len(lines_si) == 0:
-
         return None
-    
-    for l in lines_si:
 
+    for l in lines_si:
         average_slope += l[1]
 
         average_intercept += l[2]
 
-    return average_slope/len(lines_si), average_intercept/len(lines_si)
+    return average_slope / len(lines_si), average_intercept / len(lines_si)
 
 
-# Return the coordinates of the points for the extremes of each line. 
+# Return the coordinates of the points for the extremes of each line.
 # Function takes in lines_si, an array of tuples of form (index, slope, intercept), vertical lines is True or False
 # Function takes in an array of lines given by the Hough line detection (lines)
 def points(lines_si, lines, vertical_lines):
-
     if len(lines_si) == 0:
-
         return None
-    
+
     slope, intercept = average_slope_intercept(lines_si)
 
     x1, x2, y1, y2 = extremes_for_lines(lines_si, lines)
@@ -43,14 +46,15 @@ def points(lines_si, lines, vertical_lines):
     if vertical_lines:
         # Replace x's with intercepts to rotate the lines back into vertical lines.
         return ((int(intercept), int(y1)), (int(intercept), int(y2)))
-    
+
     else:
         # Calculate the y coordinate using a line equation: y = mx + b
-        y1 = slope*x1+intercept
+        y1 = slope * x1 + intercept
 
-        y2 = slope*x2+intercept
+        y2 = slope * x2 + intercept
 
         return ((int(x1), int(y1)), (int(x2), int(y2)))
+
 
 # Return all the highest and lowest coordinates of each extreme detected by Hough lines
 # Function takes in an array of lines given by the Hough line detection (lines)
@@ -62,7 +66,6 @@ def extremes_for_lines(lines_si, lines):
     ys = []
 
     for l in lines_si:
-
         idx = l[0]
         # Uses the index to find the x coordinates of all extremes of each Hough line detected, same procedure for y
         x1, x2 = lines[idx][0][0], lines[idx][0][2]
@@ -105,14 +108,13 @@ def make_lines(lines):
     idx = 0
 
     if lines is None:
-            
-            return [None, None]
-    
+        return [None, None]
+
     for line in lines:
 
         for x1, y1, x2, y2 in line:
             # Case if the line is vertical
-            if abs(x1-x2) < 9:
+            if abs(x1 - x2) < 9:
                 # To avoid dealing with an undefined slope, rotate the vertical lines into horizontal lines. Switch back the points later on.
                 slope = 0
 
@@ -130,14 +132,13 @@ def make_lines(lines):
 
         idx += 1
     # Case determining whether the lines are vertical
-    if len(vertical_line_si) > len(lines)/2:
-
+    if len(vertical_line_si) > len(lines) / 2:
         line_si = vertical_line_si
 
         vertical_lines = True
 
     m_slope, m_intercept = average_slope_intercept(line_si)
-    #Group each line detected into upper or lower lines based on their position above or below the average x intercept.
+    # Group each line detected into upper or lower lines based on their position above or below the average x intercept.
     for l in line_si:
 
         if m_intercept > l[2]:
@@ -159,13 +160,13 @@ def make_lines(lines):
 
         X1, Y1, X2, Y2 = l_points[0][0], l_points[0][1], l_points[1][0], l_points[1][1]
         # Center coordinates
-        mx1 = int(x1+X1)/2
+        mx1 = int(x1 + X1) / 2
 
-        my1 = int(y1+Y1)/2
+        my1 = int(y1 + Y1) / 2
 
-        mx2 = int(x2+X2)/2
+        mx2 = int(x2 + X2) / 2
 
-        my2 = int(y2+Y2)/2
+        my2 = int(y2 + Y2) / 2
 
         min_x, max_x, min_y, max_y = extremes_for_lines(line_si, lines)
 
@@ -173,27 +174,26 @@ def make_lines(lines):
 
         m2, b2 = average_slope_intercept(lower_line)
         # Case if the upper and lower lines are not parallel
-        if abs(m1-m2) > 6:
+        if abs(m1 - m2) > 6:
             # Normalization
-            n1 = 1/(math.sqrt(m1*m1+1))
+            n1 = 1 / (math.sqrt(m1 * m1 + 1))
 
-            n2 = 1/(math.sqrt(m2*m2+1))
+            n2 = 1 / (math.sqrt(m2 * m2 + 1))
 
-            center_slope = (n2*m2-n1*m1)/(n2-n1)
-            
+            center_slope = (n2 * m2 - n1 * m1) / (n2 - n1)
+
             if m1 > m2:
+                center_slope = -1 / center_slope
 
-                center_slope = -1/center_slope
+            center_intercept = (n2 * b2 - n1 * b1) / (n2 - n1)
 
-            center_intercept = (n2*b2-n1*b1)/(n2-n1)
-            
             mx1 = min_x
 
             mx2 = max_x
 
-            my1 = mx1*center_slope+center_intercept
+            my1 = mx1 * center_slope + center_intercept
 
-            my2 = mx2*center_slope+center_intercept
+            my2 = mx2 * center_slope + center_intercept
 
             c_points = ((int(mx1), int(my1)), (int(mx2), int(my2)))
 
@@ -210,7 +210,6 @@ def draw_lines(image, lines, color=[0, 0, 255], thickness=12):
     line_image = np.zeros_like(image)
 
     if lines is None:
-
         return None
 
     for i in range(len(lines)):
@@ -219,9 +218,9 @@ def draw_lines(image, lines, color=[0, 0, 255], thickness=12):
 
         if line is not None:
             # Center line case since the center line is returned last by the make_lines function
-            if i == len(lines)-1:
+            if i == len(lines) - 1:
                 # Center line is drawn in green
-                cv.line(line_image, *line, [0,255,0], thickness+10)
+                cv.line(line_image, *line, [0, 255, 0], thickness + 10)
 
             else:
 
@@ -234,30 +233,45 @@ def draw_lines(image, lines, color=[0, 0, 255], thickness=12):
     return cv.addWeighted(image, 1.0, line_image, 1.0, 0.0)
 
 
-
 def frame_processor(img):
+    rows, columns = img.shape[0], img.shape[1]
+    img = img[10:rows - 900, 10:columns - 10]
+    hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
-    canny_img = cv.Canny(img, 50, 200, None, 3)
-    #https://www.learningaboutelectronics.com/Articles/Region-of-interest-in-an-image-Python-OpenCV.php used to create a square region of interest
-    vertices = np.array([[(100, 100), (400, 100), (400,400), (100, 400)]], dtype=np.int32)
+    yellow_lower = np.array([20, 100, 100])
+    yellow_upper = np.array([30, 255, 255])
+    mask_yellow = cv.inRange(hsv, yellow_lower, yellow_upper)
+
+    yellow_output = cv.bitwise_and(img, img, mask=mask_yellow)
+    cv.imshow("yellow", yellow_output)
+    
+    #canny_img = cv.Canny(img, 50, 200, None, 3)
+    # https://www.learningaboutelectronics.com/Articles/Region-of-interest-in-an-image-Python-OpenCV.php used to create a square region of interest
+
+    '''imshape = img.shape
+    lower_left = (imshape[1] / 40, imshape[0])
+    lower_right = (imshape[1] - imshape[1] / 40, imshape[0])
+    top_left = (imshape[1] / 2 - imshape[1] / 20, imshape[0] / 2 + imshape[0] / 10)
+    top_right = (imshape[1] / 2 + imshape[1] / 20, imshape[0] / 2 + imshape[0] / 10)
+    vertices = np.array([[top_left, top_right, lower_right, lower_left]], dtype=np.int32)
 
     mask = np.zeros_like(canny_img)
 
-    ROI = cv.fillPoly(mask, vertices,255)
+    ROI = cv.fillPoly(mask, vertices, 255)
 
-    region_of_interest = cv.bitwise_and(canny_img, ROI)
+    region_of_interest = cv.bitwise_and(canny_img, ROI)'''
+    canny_img = cv.Canny(yellow_output, 50, 200, None, 3)
+    lines = cv.HoughLinesP(canny_img, 1, np.pi / 180, 50, None, 50, 10)
 
-    lines = cv.HoughLinesP(region_of_interest, 1, np.pi / 180, 50, None, 50, 10)
-
-    final_no_roi_drawn = draw_lines(img, make_lines(lines))
+    final = draw_lines(img, make_lines(lines))
     # https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html used to draw the outline of the region of interest
-    final = cv.polylines(final_no_roi_drawn, [vertices], True, (0,0,255), 1)
+    #final = cv.polylines(final_no_roi_drawn, [vertices], True, (0, 0, 255), 1)
 
     return final
 
 
 # https://stackoverflow.com/questions/2601194/displaying-a-webcam-feed-using-opencv-and-python/11449901#11449901 used to display the webcam feed and lines
-camera = cv.VideoCapture(0)
+camera = cv.VideoCapture("0EAA4E16-5247-4DD8-88B0-DA02B052D5D0.mov")
 
 cv.namedWindow("Emma Chetan Parallel and Centerline Detection PWP")
 
@@ -282,9 +296,7 @@ while success:
     key = cv.waitKey(20)
     # Use esc button to exit
     if key == 27:
-
         break
-
 
 cv.destroyWindow("Emma Chetan Parallel and Centerline Detection PWP")
 
