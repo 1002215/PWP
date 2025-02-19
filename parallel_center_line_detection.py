@@ -241,22 +241,23 @@ def frame_processor(img):
     yellow_lower = np.array([20, 100, 100])
     yellow_upper = np.array([30, 255, 255])
     mask_yellow = cv.inRange(hsv, yellow_lower, yellow_upper)
-    lower_white = np.array([0, 0, 200])
+    lower_white = np.array([0, 0, 100])
     upper_white = np.array([255, 50, 255])
     #ellow_output = cv.bitwise_and(img, img, mask=mask_yellow)
     mask_white = cv.inRange(hsv, lower_white, upper_white)
     mask_yw = cv.bitwise_or(mask_white, mask_yellow)
     mask_yw_image = cv.bitwise_and(img, img, mask_yw)
     cv.imshow("yw", mask_yw)
+    #canny_img = cv.Canny(mask_yw_image, 50, 200, None, 3)
 
     #canny_img = cv.Canny(img, 50, 200, None, 3)
     # https://www.learningaboutelectronics.com/Articles/Region-of-interest-in-an-image-Python-OpenCV.php used to create a square region of interest
 
     imshape = img.shape
-    lower_left = (imshape[1] / 40, imshape[0])
-    lower_right = (imshape[1] - imshape[1] / 40, imshape[0])
-    top_left = (imshape[1] / 2 - imshape[1] / 20, imshape[0] / 2 + imshape[0] / 10)
-    top_right = (imshape[1] / 2 + imshape[1] / 20, imshape[0] / 2 + imshape[0] / 10)
+    lower_left = (0, imshape[0])
+    lower_right = (0, imshape[0]/2)
+    top_left = (imshape[1], imshape[0] / 2)
+    top_right = (imshape[1], imshape[0])
     vertices = np.array([[top_left, top_right, lower_right, lower_left]], dtype=np.int32)
     canny_img = cv.Canny(mask_yw_image, 50, 200, None, 3)
     mask = np.zeros_like(canny_img)
@@ -264,12 +265,28 @@ def frame_processor(img):
     ROI = cv.fillPoly(mask, vertices, 255)
 
     region_of_interest = cv.bitwise_and(canny_img, ROI)
+    '''height, width, _= img.shape  # extract the height and width of the edges frame
+    mask = np.zeros_like(canny_img)  # make an empty matrix with same dimensions of the edges frame
+
+    # only focus lower half of the screen
+    # specify the coordinates of 4 points (lower left, upper left, upper right, lower right)
+    polygon = np.array([[
+        (0, height),
+        (0, height / 2),
+        (width, height / 2),
+        (width, height),
+    ]], dtype=np.int32)
+
+    ROI = cv.fillPoly(mask, polygon, 255)  # fill the polygon with blue color
+    region_of_interest = cv.bitwise_and(canny_img, ROI)
+'''
 
     lines = cv.HoughLinesP(region_of_interest, 1, np.pi / 180, 50, None, 50, 10)
 
     final = draw_lines(img, make_lines(lines))
     # https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html used to draw the outline of the region of interest
     final = cv.polylines(final, [vertices], True, (0, 0, 255), 1)
+    final = cv.fillPoly(img, vertices, 255)
 
     return final
 
