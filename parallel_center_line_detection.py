@@ -234,65 +234,48 @@ def draw_lines(image, lines, color=[0, 0, 255], thickness=12):
 
 
 def frame_processor(img):
-    #rows, columns = img.shape[0], img.shape[1]
-    #img = img[10:rows - 900, 10:columns - 10]
+    rows, columns = img.shape[0], img.shape[1]
+    img = img[10:rows - 900, 10:columns - 10]
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
     yellow_lower = np.array([20, 100, 100])
     yellow_upper = np.array([30, 255, 255])
     mask_yellow = cv.inRange(hsv, yellow_lower, yellow_upper)
-    lower_white = np.array([0, 0, 100])
+    lower_white = np.array([0, 0, 200])
     upper_white = np.array([255, 50, 255])
-    #ellow_output = cv.bitwise_and(img, img, mask=mask_yellow)
+    # ellow_output = cv.bitwise_and(img, img, mask=mask_yellow)
     mask_white = cv.inRange(hsv, lower_white, upper_white)
     mask_yw = cv.bitwise_or(mask_white, mask_yellow)
     mask_yw_image = cv.bitwise_and(img, img, mask_yw)
     cv.imshow("yw", mask_yw)
-    #canny_img = cv.Canny(mask_yw_image, 50, 200, None, 3)
 
-    #canny_img = cv.Canny(img, 50, 200, None, 3)
+    # canny_img = cv.Canny(img, 50, 200, None, 3)
     # https://www.learningaboutelectronics.com/Articles/Region-of-interest-in-an-image-Python-OpenCV.php used to create a square region of interest
 
-    imshape = img.shape
-    lower_left = (0, imshape[0])
-    lower_right = (0, imshape[0]/2)
-    top_left = (imshape[1], imshape[0] / 2)
-    top_right = (imshape[1], imshape[0])
-    vertices = np.array([[top_left, top_right, lower_right, lower_left]], dtype=np.int32)
+    height = img.shape[0]
+    width = img.shape[1]
+    lower_left = (100, height)
+    lower_right = (width, height)
+    top_left = (width-500, int(height/1.9))
+    vertices = np.array([[lower_left, lower_right, top_left]], dtype=np.int32)
     canny_img = cv.Canny(mask_yw_image, 50, 200, None, 3)
     mask = np.zeros_like(canny_img)
 
     ROI = cv.fillPoly(mask, vertices, 255)
 
     region_of_interest = cv.bitwise_and(canny_img, ROI)
-    '''height, width, _= img.shape  # extract the height and width of the edges frame
-    mask = np.zeros_like(canny_img)  # make an empty matrix with same dimensions of the edges frame
-
-    # only focus lower half of the screen
-    # specify the coordinates of 4 points (lower left, upper left, upper right, lower right)
-    polygon = np.array([[
-        (0, height),
-        (0, height / 2),
-        (width, height / 2),
-        (width, height),
-    ]], dtype=np.int32)
-
-    ROI = cv.fillPoly(mask, polygon, 255)  # fill the polygon with blue color
-    region_of_interest = cv.bitwise_and(canny_img, ROI)
-'''
 
     lines = cv.HoughLinesP(region_of_interest, 1, np.pi / 180, 50, None, 50, 10)
 
     final = draw_lines(img, make_lines(lines))
     # https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html used to draw the outline of the region of interest
     final = cv.polylines(final, [vertices], True, (0, 0, 255), 1)
-    final = cv.fillPoly(img, vertices, 255)
 
     return final
 
 
 # https://stackoverflow.com/questions/2601194/displaying-a-webcam-feed-using-opencv-and-python/11449901#11449901 used to display the webcam feed and lines
-camera = cv.VideoCapture("Screen Recording 2025-02-18 at 8.38.26 AM.mov")
+camera = cv.VideoCapture("0EAA4E16-5247-4DD8-88B0-DA02B052D5D0.mov")
 img = cv.imread("road3.jpg")
 cv.namedWindow("Emma Chetan Parallel and Centerline Detection PWP")
 
