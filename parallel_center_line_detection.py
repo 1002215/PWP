@@ -1,20 +1,13 @@
 import cv2 as cv
 import numpy as np
 import math
+from PIL import Image
 
 
 # Emma Chetan Parallel Line and Finding Center Line PWP H
 # Kernel size 3
-# Change minlinegap to 200 still not working
 
-def interested_region(img, vertices):
-    if len(img.shape) > 2:
-        mask_color_ignore = (255,) * img.shape[2]
-    else:
-        mask_color_ignore = 255
 
-    cv.fillPoly(np.zeros_like(img), vertices, mask_color_ignore)
-    return cv.bitwise_and(img, np.zeros_like(img))
 # Return the average slope and average intercept given an array of tuples with format (index, slope, intercept)
 def average_slope_intercept(lines_si):
     average_slope = 0
@@ -254,9 +247,9 @@ def frame_processor(img):
 
     height = img.shape[0]
     width = img.shape[1]
-    lower_left = (100, height)
+    lower_left = (0, height)
     lower_right = (width, height)
-    top_left = (width-500, int(height/1.9))
+    top_left = (width-700, int(height/1.1))
     vertices = np.array([[lower_left, lower_right, top_left]], dtype=np.int32)
     canny_img = cv.Canny(mask_yw_image, 50, 200, None, 3)
     mask = np.zeros_like(canny_img)
@@ -271,11 +264,22 @@ def frame_processor(img):
     # https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html used to draw the outline of the region of interest
     final = cv.polylines(final, [vertices], True, (0, 0, 255), 1)
 
+
     return final
 
 
+
+# Opening the secondary image (overlay image)
+img2 = Image.open("arrow2.png").convert("RGBA")
+img2 = img2.resize((200,200))
+#position = (400,0)
+
+# Pasting img2 image on top of img1
+# starting at coordinates (0, 0)
+
+
 # https://stackoverflow.com/questions/2601194/displaying-a-webcam-feed-using-opencv-and-python/11449901#11449901 used to display the webcam feed and lines
-camera = cv.VideoCapture("0EAA4E16-5247-4DD8-88B0-DA02B052D5D0.mov")
+camera = cv.VideoCapture("Screen Recording 2025-02-18 at 8.38.26 AM.mov")
 img = cv.imread("road3.jpg")
 cv.namedWindow("Emma Chetan Parallel and Centerline Detection PWP")
 
@@ -284,6 +288,10 @@ if camera.isOpened():
     success, frame = camera.read()
 
     frame = frame_processor(frame)
+    frame_pil = Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB)).convert("RGBA")
+    frame_pil.paste(img2, (0, 0), mask=img2)
+    frame_bgr = cv.cvtColor(np.array(frame_pil), cv.COLOR_RGBA2BGR)
+
 
 else:
 
@@ -291,11 +299,14 @@ else:
 
 while success:
 
-    cv.imshow("Emma Chetan Parallel and Centerline Detection PWP", frame)
+    cv.imshow("Emma Chetan Parallel and Centerline Detection PWP", frame_bgr)
 
     success, frame = camera.read()
 
     frame = frame_processor(frame)
+    frame_pil = Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB)).convert("RGBA")
+    frame_pil.paste(img2, (0, 0), mask=img2)
+    frame_bgr = cv.cvtColor(np.array(frame_pil), cv.COLOR_RGBA2BGR)
 
     key = cv.waitKey(20)
     # Use esc button to exit
