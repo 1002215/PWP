@@ -104,8 +104,8 @@ def make_lines(lines):
         return [None, None]
 
     for line in lines:
-
         for x1, y1, x2, y2 in line:
+            fit = np.polyfit((x1, x2), (y1, y2), 1)
             # Case if the line is vertical
             if abs(x1 - x2) < 9:
                 # To avoid dealing with an undefined slope, rotate the vertical lines into horizontal lines. Switch back the points later on.
@@ -117,9 +117,9 @@ def make_lines(lines):
 
             else:
                 # Equation to calculate slope
-                slope = (y2 - y1) / (x2 - x1)
+                slope = fit[0]
                 # Calculating intercept of a line using line equation: y = mx + b
-                intercept = y1 - (slope * x1)
+                intercept = fit[1]
 
             line_si.append((idx, slope, intercept))
 
@@ -186,6 +186,8 @@ def make_lines(lines):
 
             my1 = mx1 * center_slope + center_intercept
 
+
+
             my2 = mx2 * center_slope + center_intercept
 
             c_points = ((int(mx1), int(my1)), (int(mx2), int(my2)))
@@ -234,12 +236,12 @@ def frame_processor(img):
     yellow_lower = np.array([20, 100, 100])
     yellow_upper = np.array([30, 255, 255])
     mask_yellow = cv.inRange(hsv, yellow_lower, yellow_upper)
-    lower_white = np.array([0, 0, 200])
+    lower_white = np.array([0, 0, 237])
     upper_white = np.array([255, 50, 255])
     # ellow_output = cv.bitwise_and(img, img, mask=mask_yellow)
     mask_white = cv.inRange(hsv, lower_white, upper_white)
     mask_yw = cv.bitwise_or(mask_white, mask_yellow)
-    mask_yw_image = cv.bitwise_and(img, img, mask_yw)
+    #mask_yw_image = cv.bitwise_and(img, img, mask_yw)
     cv.imshow("yw", mask_yw)
 
     # canny_img = cv.Canny(img, 50, 200, None, 3)
@@ -249,14 +251,19 @@ def frame_processor(img):
     width = img.shape[1]
     lower_left = (0, height)
     lower_right = (width, height)
-    top_left = (width-700, int(height/1.1))
+    top_left = (width-700, int(height/1.13))
+    canny_img = cv.Canny(mask_yw, 50, 200, None, 3)
+    cv.imshow("canny", canny_img)
+
     vertices = np.array([[lower_left, lower_right, top_left]], dtype=np.int32)
-    canny_img = cv.Canny(mask_yw_image, 50, 200, None, 3)
+
     mask = np.zeros_like(canny_img)
+
 
     ROI = cv.fillPoly(mask, vertices, 255)
 
     region_of_interest = cv.bitwise_and(canny_img, ROI)
+    #canny_img = cv.Canny(region_of_interest, 50, 200, None, 3)
 
     lines = cv.HoughLinesP(region_of_interest, 1, np.pi / 180, 50, None, 50, 10)
 
@@ -279,7 +286,7 @@ img2 = img2.resize((200,200))
 
 
 # https://stackoverflow.com/questions/2601194/displaying-a-webcam-feed-using-opencv-and-python/11449901#11449901 used to display the webcam feed and lines
-camera = cv.VideoCapture("Screen Recording 2025-02-18 at 8.38.26 AM.mov")
+camera = cv.VideoCapture("0EAA4E16-5247-4DD8-88B0-DA02B052D5D0.mov")
 img = cv.imread("road3.jpg")
 cv.namedWindow("Emma Chetan Parallel and Centerline Detection PWP")
 
