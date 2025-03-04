@@ -28,7 +28,7 @@ def average_slope_intercept(lines_si):
 # Return the coordinates of the points for the extremes of each line.
 # Function takes in lines_si, an array of tuples of form (index, slope, intercept), vertical lines is True or False
 # Function takes in an array of lines given by the Hough line detection (lines)
-def points(lines_si, lines, vertical_lines):
+def points(img, lines_si, lines, vertical_lines):
     if len(lines_si) == 0:
         return None
 
@@ -41,6 +41,8 @@ def points(lines_si, lines, vertical_lines):
         return ((int(intercept), int(y1)), (int(intercept), int(y2)))
 
     else:
+        x1 = 0
+        x2 = img.shape[1]
         # Calculate the y coordinate using a line equation: y = mx + b
         y1 = slope * x1 + intercept
 
@@ -86,7 +88,7 @@ def extremes_for_lines(lines_si, lines):
 
 # Return the points needed to draw the upper, lower, and center lines
 # Function takes in an array of lines given by the Hough line detection
-def make_lines(lines):
+def make_lines(img, lines):
     # Format (index, slope, intercept), si standing for slope intercept
     line_si = []
     # Format (index, slope, intercept), si standing for slope intercept
@@ -141,11 +143,11 @@ def make_lines(lines):
 
             upper_line.append(l)
 
-    u_points = points(upper_line, lines, vertical_lines)
+    u_points = points(img, upper_line, lines, vertical_lines)
 
-    l_points = points(lower_line, lines, vertical_lines)
+    l_points = points(img, lower_line, lines, vertical_lines)
 
-    c_points = points(line_si, lines, vertical_lines)
+    c_points = points(img, line_si, lines, vertical_lines)
 
     if l_points != None and u_points != None and c_points != None:
 
@@ -215,11 +217,13 @@ def draw_lines(image, lines, color=[0, 0, 255], thickness=12):
             # Center line case since the center line is returned last by the make_lines function
             if i == len(lines) - 1:
                 # Center line is drawn in green
-                cv.line(line_image, *line, [0, 255, 0], thickness + 10)
+                #cv.line(line_image, *line, [0, 255, 0], thickness + 10)
+                pass
 
             else:
 
                 cv.line(line_image, *line, color, thickness)
+                
 
         else:
 
@@ -231,6 +235,7 @@ def draw_lines(image, lines, color=[0, 0, 255], thickness=12):
 def frame_processor(img):
     rows, columns = img.shape[0], img.shape[1]
     img = img[10:rows - 900, 10:columns - 10]
+    #img = cv.resize(img, (432,768), cv.INTER_AREA)
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
     yellow_lower = np.array([20, 100, 100])
@@ -238,11 +243,11 @@ def frame_processor(img):
     mask_yellow = cv.inRange(hsv, yellow_lower, yellow_upper)
     lower_white = np.array([0, 0, 237])
     upper_white = np.array([255, 50, 255])
-    # ellow_output = cv.bitwise_and(img, img, mask=mask_yellow)
+    # yellow_output = cv.bitwise_and(img, img, mask=mask_yellow)
     mask_white = cv.inRange(hsv, lower_white, upper_white)
     mask_yw = cv.bitwise_or(mask_white, mask_yellow)
     #mask_yw_image = cv.bitwise_and(img, img, mask_yw)
-    cv.imshow("yw", mask_yw)
+    
 
     # canny_img = cv.Canny(img, 50, 200, None, 3)
     # https://www.learningaboutelectronics.com/Articles/Region-of-interest-in-an-image-Python-OpenCV.php used to create a square region of interest
@@ -253,7 +258,7 @@ def frame_processor(img):
     lower_right = (width, height)
     top_left = (width-700, int(height/1.13))
     canny_img = cv.Canny(mask_yw, 50, 200, None, 3)
-    cv.imshow("canny", canny_img)
+    #cv.imshow("canny", canny_img)
 
     vertices = np.array([[lower_left, lower_right, top_left]], dtype=np.int32)
 
@@ -267,11 +272,15 @@ def frame_processor(img):
 
     lines = cv.HoughLinesP(region_of_interest, 1, np.pi / 180, 50, None, 50, 10)
 
-    final = draw_lines(img, make_lines(lines))
+    final = draw_lines(img, make_lines(img,lines))
     # https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html used to draw the outline of the region of interest
     final = cv.polylines(final, [vertices], True, (0, 0, 255), 1)
 
-
+    #final = cv.resize(final, (432,768), cv.INTER_AREA)
+    #mask_yw = cv.resize(mask_yw, (432,768), cv.INTER_AREA)
+    #canny_img= cv.resize(canny_img, (432,768), cv.INTER_AREA)
+    cv.imshow("yw", mask_yw)
+    cv.imshow("cNNY", canny_img)
     return final
 
 
@@ -294,11 +303,17 @@ if camera.isOpened():
 
     success, frame = camera.read()
 
+    #scale_percent = 30 # percent of original size
+    #width = int(frame.shape[1] * scale_percent / 100)
+    #height = int(frame.shape[0] * scale_percent / 100)
+    #dim = (width, height)
+ 
+# resize image
+
     frame = frame_processor(frame)
     frame_pil = Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB)).convert("RGBA")
     frame_pil.paste(img2, (0, 0), mask=img2)
     frame_bgr = cv.cvtColor(np.array(frame_pil), cv.COLOR_RGBA2BGR)
-
 
 else:
 
@@ -310,11 +325,17 @@ while success:
 
     success, frame = camera.read()
 
+    #scale_percent = 30 # percent of original size
+    #width = int(frame.shape[1] * scale_percent / 100)
+    #height = int(frame.shape[0] * scale_percent / 100)
+    #dim = (width, height)
+ 
+# resize image
+
     frame = frame_processor(frame)
     frame_pil = Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB)).convert("RGBA")
     frame_pil.paste(img2, (0, 0), mask=img2)
     frame_bgr = cv.cvtColor(np.array(frame_pil), cv.COLOR_RGBA2BGR)
-
     key = cv.waitKey(20)
     # Use esc button to exit
     if key == 27:
