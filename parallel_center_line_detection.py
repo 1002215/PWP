@@ -41,8 +41,8 @@ def points(img, lines_si, lines, vertical_lines):
         return ((int(intercept), int(y1)), (int(intercept), int(y2)))
 
     else:
-        x1 = 0
-        x2 = img.shape[1]
+        #x1 = 0
+        #x2 = img.shape[1]
         # Calculate the y coordinate using a line equation: y = mx + b
         y1 = slope * x1 + intercept
 
@@ -85,6 +85,7 @@ def extremes_for_lines(lines_si, lines):
 
     return min_x, max_x, min_y, max_y
 
+
 def perspective_transform(img):
     img_size = (img.shape[1], img.shape[0])
     offset = 300
@@ -107,6 +108,8 @@ def perspective_transform(img):
     warped = cv.warpPerspective(img, M, img_size)
 
     return warped, M_inv
+
+
 # Return the points needed to draw the upper, lower, and center lines
 # Function takes in an array of lines given by the Hough line detection
 def make_lines(img, lines):
@@ -190,7 +193,7 @@ def make_lines(img, lines):
 
         m2, b2 = average_slope_intercept(lower_line)
         # Case if the upper and lower lines are not parallel
-        if abs(m1 - m2) >0.5:
+        if abs(m1 - m2) > 0.5:
             # Normalization
             n1 = 1 / (math.sqrt(m1 * m1 + 1))
 
@@ -249,6 +252,7 @@ def draw_lines(image, lines, color=[0, 0, 255], thickness=12):
 
     return cv.addWeighted(image, 1.0, line_image, 1.0, 0.0)
 
+
 def make_mask(img):
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
@@ -260,49 +264,52 @@ def make_mask(img):
     # yellow_output = cv.bitwise_and(img, img, mask=mask_yellow)
     mask_white = cv.inRange(hsv, lower_white, upper_white)
     mask_yw = cv.bitwise_or(mask_white, mask_yellow)
-    cv.imshow("yw", mask_yw)
+    #cv.imshow("yw", mask_yw)
 
     return mask_yw
+
 
 def roi(img):
     height = img.shape[0]
     width = img.shape[1]
-    lower_left = (0-350, height)
-    lower_right = (width+300, height)
+    lower_left = (0 - 350, height)
+    lower_right = (width + 300, height)
     top_left = (width - 300, int(height / 1.5))
-    #cv.imshow("canny", canny_img)
+    # cv.imshow("canny", canny_img)
 
     vertices = np.array([[lower_left, lower_right, top_left]], dtype=np.int32)
 
     mask = np.zeros_like(img)
 
     ROI = cv.fillPoly(mask, vertices, (255, 255, 255))
-    cv.imshow("ROI", ROI)
+    #cv.imshow("ROI", ROI)
 
     region_of_interest = cv.bitwise_and(img, ROI)
 
     return region_of_interest, vertices
+
+
 def frame_processor(img):
     img = cv.rotate(img, cv.ROTATE_90_CLOCKWISE)
-    #img = cv.resize(img, (540,960))
+    # img = cv.resize(img, (540,960))
     rows, columns = img.shape[0], img.shape[1]
     img = img[10:rows - 200, 10:columns - 10]
-    #warped, M_inv = perspective_transform(img)
-    #cv.imshow("warp", warped)
+    # warped, M_inv = perspective_transform(img)
+    # cv.imshow("warp", warped)
 
     # mask_yw_image = cv.bitwise_and(img, img, mask_yw)
-    
-    #idk = draw_lines(img, make_lines(img, lines))
-    #warp_zero = np.zeros_like(idk).astype(np.uint8)
-    #color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    #newwarp = cv.warpPerspective(color_warp, M_inv, (img.shape[1], img.shape[0]))
-    #out_img = cv.addWeighted(img, 1, newwarp, 0.3, 0)
-    #cv.imshow("idk", out_img)
+
+    # idk = draw_lines(img, make_lines(img, lines))
+    # warp_zero = np.zeros_like(idk).astype(np.uint8)
+    # color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+    # newwarp = cv.warpPerspective(color_warp, M_inv, (img.shape[1], img.shape[0]))
+    # out_img = cv.addWeighted(img, 1, newwarp, 0.3, 0)
+    # cv.imshow("idk", out_img)
     # canny_img = cv.Canny(img, 50, 200, None, 3)
     # https://www.learningaboutelectronics.com/Articles/Region-of-interest-in-an-image-Python-OpenCV.php used to create a square region of interest
 
     region_of_interest, vertices = roi(img)
-    cv.imshow("roi", region_of_interest)
+    #cv.imshow("roi", region_of_interest)
     mask_yw = make_mask(region_of_interest)
 
     canny_img = cv.Canny(mask_yw, 50, 200, None, 3)
@@ -311,14 +318,14 @@ def frame_processor(img):
 
     final = draw_lines(img, make_lines(img, lines))
     # https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html used to draw the outline of the region of interest
-    final = cv.polylines(final, [vertices], True, (0, 0, 255), 1)
+    #final = cv.polylines(final, [vertices], True, (0, 0, 255), 1)
 
     return final
 
 
 # Opening the secondary image (overlay image)
 img2 = Image.open("arrow2.png").convert("RGBA")
-img2 = img2.resize((200, 200))
+img2 = img2.resize((100, 100))
 # position = (400,0)
 
 # Pasting img2 image on top of img1
@@ -326,8 +333,8 @@ img2 = img2.resize((200, 200))
 
 
 # https://stackoverflow.com/questions/2601194/displaying-a-webcam-feed-using-opencv-and-python/11449901#11449901 used to display the webcam feed and lines
-camera = cv.VideoCapture("video.mov")
-#img = cv.imread("road3.jpg")
+camera = cv.VideoCapture("IMG_5624.mov")
+# img = cv.imread("road3.jpg")
 cv.namedWindow("Emma Chetan Parallel and Centerline Detection PWP")
 
 if camera.isOpened():
@@ -335,7 +342,7 @@ if camera.isOpened():
     success, frame = camera.read()
     print(frame.shape[1], frame.shape[0])
 
-    scale_percent = 30 # percent of original size
+    scale_percent = 30  # percent of original size
     width = int(frame.shape[1] * scale_percent / 100)
     height = int(frame.shape[0] * scale_percent / 100)
     dim = (width, height)
@@ -358,7 +365,7 @@ while success:
 
     success, frame = camera.read()
 
-    scale_percent = 30 # percent of original size
+    scale_percent = 30  # percent of original size
     width = int(frame.shape[1] * scale_percent / 100)
     height = int(frame.shape[0] * scale_percent / 100)
     dim = (width, height)
