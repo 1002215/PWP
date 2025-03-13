@@ -8,7 +8,7 @@ from VideoCamera import *
 # Emma Chetan Parallel Line and Finding Center Line PWP H
 # Kernel size 3
 
-app = Flask(__name__, template_folder=templates)
+app = Flask(__name__, template_folder="templates")
 # Return the average slope and average intercept given an array of tuples with format (index, slope, intercept)
 def average_slope_intercept(lines_si):
     average_slope = 0
@@ -293,9 +293,9 @@ def paste_arrow(frame, arrow_img):
 
 def frame_processor(img):
     img = cv.rotate(img, cv.ROTATE_90_CLOCKWISE)
-    #img = cv.resize(img, (540,960))
-    #rows, columns = img.shape[0], img.shape[1]
-    #img = img[10:rows - 200, 10:columns - 10]
+    img = cv.resize(img, (540,960))
+    rows, columns = img.shape[0], img.shape[1]
+    img = img[10:rows - 200, 10:columns - 10]
     #warped, M_inv = perspective_transform(img)
     #cv.imshow("warp", warped)
 
@@ -361,9 +361,30 @@ for arrow in arrows:
 
 
 # https://stackoverflow.com/questions/2601194/displaying-a-webcam-feed-using-opencv-and-python/11449901#11449901 used to display the webcam feed and lines
-camera = cv.VideoCapture("turn.mov")
+camera = cv.VideoCapture("video.mov")
 #img = cv.imread("road3.jpg")
-cv.namedWindow("Emma Chetan Parallel and Centerline Detection PWP")
+#cv.namedWindow("Emma Chetan Parallel and Centerline Detection PWP")
+def normal_video():
+    while True:
+
+        success, frame = camera.read()
+        if not success:
+            break
+        scale_percent = 30 # percent of original size
+        width = int(frame.shape[1] * scale_percent / 100)
+        height = int(frame.shape[0] * scale_percent / 100)
+        dim = (width, height)
+        frame = cv.resize(frame, dim, cv.INTER_LINEAR)
+        frame = cv.rotate(frame, cv.ROTATE_90_CLOCKWISE)
+        if frame is not None:    
+        # Encode the grayscale frame
+            ret2, buffer2 = cv.imencode('.jpg', frame)
+            if not ret2:
+                print("Error: Failed to encode grayscale frame")
+                break
+            yield (b'--frame\r\n'
+                    b'Content-Type: image/jpeg\r\n\r\n' + buffer2.tobytes() + b'\r\n')
+        # resize image
 
 def frames():
     while True:
@@ -403,8 +424,15 @@ def color_feed():
    """Endpoint for the color video feed."""
    return Response(frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+@app.route('/gray_feed')
+def gray_feed():
+   """Endpoint for the grayscale video feed."""
+   return Response(normal_video(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-
+#Show the screen separating the webite into four parts: one with the buttons, one with the console log, and the rest as placeholders.
+@app.route('/screen/', methods = ['GET', 'POST'])
+def screen():
+    return render_template('screen.html')
 
 if __name__=="__main__": #Runs the API
-  app.run(host='0.0.0.0', debug=True, port=5000, use_reloader=False) #Where the API will be hosted, host will be updated to static raspberry pi ip address
+  app.run(host='127.0.0.1', debug=True, port=5000, use_reloader=False) #Where the API will be hosted, host will be updated to static raspberry pi ip address
