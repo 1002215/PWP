@@ -2,12 +2,13 @@ import cv2 as cv
 import numpy as np
 import math
 from PIL import Image
-
+from flask import Flask, request, jsonify, render_template, redirect, url_for, Response
+from VideoCamera import *
 
 # Emma Chetan Parallel Line and Finding Center Line PWP H
 # Kernel size 3
 
-
+app = Flask(__name__, template_folder=templates)
 # Return the average slope and average intercept given an array of tuples with format (index, slope, intercept)
 def average_slope_intercept(lines_si):
     average_slope = 0
@@ -41,8 +42,8 @@ def points(img, lines_si, lines, vertical_lines):
         return ((int(intercept), int(y1)), (int(intercept), int(y2)))
 
     else:
-        #x1 = 0
-        #x2 = img.shape[1]
+        x1 = 0
+        x2 = img.shape[1]
         # Calculate the y coordinate using a line equation: y = mx + b
         y1 = slope * x1 + intercept
 
@@ -85,7 +86,6 @@ def extremes_for_lines(lines_si, lines):
 
     return min_x, max_x, min_y, max_y
 
-
 def perspective_transform(img):
     img_size = (img.shape[1], img.shape[0])
     offset = 300
@@ -108,8 +108,6 @@ def perspective_transform(img):
     warped = cv.warpPerspective(img, M, img_size)
 
     return warped, M_inv
-
-
 # Return the points needed to draw the upper, lower, and center lines
 # Function takes in an array of lines given by the Hough line detection
 def make_lines(img, lines):
@@ -193,7 +191,7 @@ def make_lines(img, lines):
 
         m2, b2 = average_slope_intercept(lower_line)
         # Case if the upper and lower lines are not parallel
-        if abs(m1 - m2) > 0.5:
+        if abs(m1 - m2) >0.5:
             # Normalization
             n1 = 1 / (math.sqrt(m1 * m1 + 1))
 
@@ -215,6 +213,7 @@ def make_lines(img, lines):
             my2 = mx2 * center_slope + center_intercept
 
             c_points = ((int(mx1), int(my1)), (int(mx2), int(my2)))
+
 
         else:
             c_points = ((int(mx1), int(my1)), (int(mx2), int(my2)))
@@ -252,7 +251,6 @@ def draw_lines(image, lines, color=[0, 0, 255], thickness=12):
 
     return cv.addWeighted(image, 1.0, line_image, 1.0, 0.0)
 
-
 def make_mask(img):
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
@@ -264,18 +262,17 @@ def make_mask(img):
     # yellow_output = cv.bitwise_and(img, img, mask=mask_yellow)
     mask_white = cv.inRange(hsv, lower_white, upper_white)
     mask_yw = cv.bitwise_or(mask_white, mask_yellow)
-    #cv.imshow("yw", mask_yw)
+    cv.imshow("yw", mask_yw)
 
     return mask_yw
-
 
 def roi(img):
     height = img.shape[0]
     width = img.shape[1]
-    lower_left = (0 - 350, height)
-    lower_right = (width + 300, height)
+    lower_left = (0-350, height)
+    lower_right = (width+300, height)
     top_left = (width - 300, int(height / 1.5))
-    # cv.imshow("canny", canny_img)
+    #cv.imshow("canny", canny_img)
 
     vertices = np.array([[lower_left, lower_right, top_left]], dtype=np.int32)
 
@@ -288,23 +285,28 @@ def roi(img):
 
     return region_of_interest, vertices
 
+def paste_arrow(frame, arrow_img):
+    frame_pil = Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB)).convert("RGBA")
+    frame_pil.paste(arrow_img, (0, 0), mask=arrow_img)
+    frame_bgr = cv.cvtColor(np.array(frame_pil), cv.COLOR_RGBA2BGR)
+    return frame_bgr
 
 def frame_processor(img):
     img = cv.rotate(img, cv.ROTATE_90_CLOCKWISE)
-    # img = cv.resize(img, (540,960))
-    rows, columns = img.shape[0], img.shape[1]
-    img = img[10:rows - 200, 10:columns - 10]
-    # warped, M_inv = perspective_transform(img)
-    # cv.imshow("warp", warped)
+    #img = cv.resize(img, (540,960))
+    #rows, columns = img.shape[0], img.shape[1]
+    #img = img[10:rows - 200, 10:columns - 10]
+    #warped, M_inv = perspective_transform(img)
+    #cv.imshow("warp", warped)
 
     # mask_yw_image = cv.bitwise_and(img, img, mask_yw)
-
-    # idk = draw_lines(img, make_lines(img, lines))
-    # warp_zero = np.zeros_like(idk).astype(np.uint8)
-    # color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    # newwarp = cv.warpPerspective(color_warp, M_inv, (img.shape[1], img.shape[0]))
-    # out_img = cv.addWeighted(img, 1, newwarp, 0.3, 0)
-    # cv.imshow("idk", out_img)
+    
+    #idk = draw_lines(img, make_lines(img, lines))
+    #warp_zero = np.zeros_like(idk).astype(np.uint8)
+    #color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+    #newwarp = cv.warpPerspective(color_warp, M_inv, (img.shape[1], img.shape[0]))
+    #out_img = cv.addWeighted(img, 1, newwarp, 0.3, 0)
+    #cv.imshow("idk", out_img)
     # canny_img = cv.Canny(img, 50, 200, None, 3)
     # https://www.learningaboutelectronics.com/Articles/Region-of-interest-in-an-image-Python-OpenCV.php used to create a square region of interest
 
@@ -315,17 +317,43 @@ def frame_processor(img):
     canny_img = cv.Canny(mask_yw, 50, 200, None, 3)
 
     lines = cv.HoughLinesP(canny_img, 1, np.pi / 180, 50, None, 50, 10)
+    last_lines = make_lines(img, lines)
+    if last_lines != None :
+        c_points = last_lines[-1]
+    #final = draw_lines(img, make_lines(img, lines))
 
+        if c_points != None:
+            ((x1, y1), (x2, y2)) = c_points
+            diry = y1 - y2
+            dirx = x1 - x2
+            angle = math.atan2(diry, dirx)
+            if angle > math.pi/4 and angle < 3*math.pi/4:
+                dir = "up"
+                
+            elif angle > -math.pi/4 or angle < math.pi/4:
+                dir = "right"
+            elif angle > 3*math.pi/4 or angle < -3*math.pi/4:
+                dir = "left"
+            else:
+                dir = "down"
+            img = paste_arrow(img, arrows[dir])
     final = draw_lines(img, make_lines(img, lines))
+
     # https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html used to draw the outline of the region of interest
-    #final = cv.polylines(final, [vertices], True, (0, 0, 255), 1)
+    final = cv.polylines(final, [vertices], True, (0, 0, 255), 1)
 
     return final
 
 
-# Opening the secondary image (overlay image)
-img2 = Image.open("arrow2.png").convert("RGBA")
-img2 = img2.resize((100, 100))
+arrows ={"up": "up.png", 
+          "left": "left.png",
+          "right": "right.png"}
+for arrow in arrows:
+    img = Image.open(arrows[arrow]).convert("RGBA")
+    arrows[arrow] = img.resize((100,100))
+
+  
+
 # position = (400,0)
 
 # Pasting img2 image on top of img1
@@ -333,55 +361,50 @@ img2 = img2.resize((100, 100))
 
 
 # https://stackoverflow.com/questions/2601194/displaying-a-webcam-feed-using-opencv-and-python/11449901#11449901 used to display the webcam feed and lines
-camera = cv.VideoCapture("IMG_5624.mov")
-# img = cv.imread("road3.jpg")
+camera = cv.VideoCapture("turn.mov")
+#img = cv.imread("road3.jpg")
 cv.namedWindow("Emma Chetan Parallel and Centerline Detection PWP")
 
-if camera.isOpened():
+def frames():
+    while True:
 
-    success, frame = camera.read()
-    print(frame.shape[1], frame.shape[0])
+        success, frame = camera.read()
+        if not success:
+            break
 
-    scale_percent = 30  # percent of original size
-    width = int(frame.shape[1] * scale_percent / 100)
-    height = int(frame.shape[0] * scale_percent / 100)
-    dim = (width, height)
-    frame = cv.resize(frame, dim, cv.INTER_LINEAR)
+        scale_percent = 30 # percent of original size
+        width = int(frame.shape[1] * scale_percent / 100)
+        height = int(frame.shape[0] * scale_percent / 100)
+        dim = (width, height)
+        frame = cv.resize(frame, dim, cv.INTER_LINEAR)
+          # resize image
 
-    # resize image
+        frame = frame_processor(frame)
+        if frame is not None:    
+        # Encode the grayscale frame
+            ret2, buffer2 = cv.imencode('.jpg', frame)
+            if not ret2:
+                print("Error: Failed to encode grayscale frame")
+                break
+            yield (b'--frame\r\n'
+                    b'Content-Type: image/jpeg\r\n\r\n' + buffer2.tobytes() + b'\r\n')
+        # resize image
 
-    frame = frame_processor(frame)
-    frame_pil = Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB)).convert("RGBA")
-    frame_pil.paste(img2, (0, 0), mask=img2)
-    frame_bgr = cv.cvtColor(np.array(frame_pil), cv.COLOR_RGBA2BGR)
+@app.route('/')
+def index():
+   """Render the main webpage."""
+   return render_template('video.html')
 
-else:
 
-    success = False
 
-while success:
 
-    cv.imshow("Emma Chetan Parallel and Centerline Detection PWP", frame_bgr)
+@app.route('/color_feed')
+def color_feed():
+   """Endpoint for the color video feed."""
+   return Response(frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-    success, frame = camera.read()
 
-    scale_percent = 30  # percent of original size
-    width = int(frame.shape[1] * scale_percent / 100)
-    height = int(frame.shape[0] * scale_percent / 100)
-    dim = (width, height)
-    frame = cv.resize(frame, dim, cv.INTER_LINEAR)
 
-    # resize image
 
-    frame = frame_processor(frame)
-    frame_pil = Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB)).convert("RGBA")
-    frame_pil.paste(img2, (0, 0), mask=img2)
-    frame_bgr = cv.cvtColor(np.array(frame_pil), cv.COLOR_RGBA2BGR)
-    key = cv.waitKey(20)
-    # Use esc button to exit
-    if key == 27:
-        break
-
-cv.destroyWindow("Emma Chetan Parallel and Centerline Detection PWP")
-
-camera.release()
+if __name__=="__main__": #Runs the API
+  app.run(host='0.0.0.0', debug=True, port=5000, use_reloader=False) #Where the API will be hosted, host will be updated to static raspberry pi ip address
