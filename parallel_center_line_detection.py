@@ -292,7 +292,7 @@ def paste_arrow(frame, arrow_img):
     return frame_bgr
 
 def frame_processor(img):
-    img = cv.rotate(img, cv.ROTATE_90_CLOCKWISE)
+    img = cv.rotate(img, cv.ROTATE_90_COUNTERCLOCKWISE)
     img = cv.resize(img, (540,960))
     rows, columns = img.shape[0], img.shape[1]
     img = img[10:rows - 200, 10:columns - 10]
@@ -324,18 +324,31 @@ def frame_processor(img):
 
         if c_points != None:
             ((x1, y1), (x2, y2)) = c_points
-            diry = y1 - y2
-            dirx = x1 - x2
+            diry = y2 - y1
+            dirx = x2 - x1
             angle = math.atan2(diry, dirx)
+            negative = False
+            if angle < 0:
+                angle += math.pi
+                negative = True
             if angle > math.pi/4 and angle < 3*math.pi/4:
-                dir = "up"
-                
-            elif angle > -math.pi/4 or angle < math.pi/4:
-                dir = "right"
-            elif angle > 3*math.pi/4 or angle < -3*math.pi/4:
-                dir = "left"
+                if negative :
+                    dir = "up"
+                else:
+                    dir = "up"
+            elif angle > 3*math.pi/4:
+                if negative :
+                    dir = "right"
+                else:
+                    dir = "left"               
+            elif angle < math.pi/4:
+                if negative :
+                    dir = "right"
+                else:
+                    dir = "left" 
             else:
-                dir = "down"
+                dir = "up"
+
             img = paste_arrow(img, arrows[dir])
     final = draw_lines(img, make_lines(img, lines))
 
@@ -361,7 +374,7 @@ for arrow in arrows:
 
 
 # https://stackoverflow.com/questions/2601194/displaying-a-webcam-feed-using-opencv-and-python/11449901#11449901 used to display the webcam feed and lines
-camera = cv.VideoCapture("video.mov")
+camera = cv.VideoCapture("Video.mov")
 #img = cv.imread("road3.jpg")
 #cv.namedWindow("Emma Chetan Parallel and Centerline Detection PWP")
 def normal_video():
@@ -370,12 +383,12 @@ def normal_video():
         success, frame = camera.read()
         if not success:
             break
-        scale_percent = 30 # percent of original size
+        '''scale_percent = 30 # percent of original size
         width = int(frame.shape[1] * scale_percent / 100)
         height = int(frame.shape[0] * scale_percent / 100)
         dim = (width, height)
-        frame = cv.resize(frame, dim, cv.INTER_LINEAR)
-        frame = cv.rotate(frame, cv.ROTATE_90_CLOCKWISE)
+        frame = cv.resize(frame, dim, cv.INTER_LINEAR)'''
+        frame = cv.rotate(frame, cv.ROTATE_90_COUNTERCLOCKWISE)
         if frame is not None:    
         # Encode the grayscale frame
             ret2, buffer2 = cv.imencode('.jpg', frame)
@@ -393,13 +406,13 @@ def frames():
         if not success:
             break
 
-        scale_percent = 30 # percent of original size
+        '''scale_percent = 30 # percent of original size
         width = int(frame.shape[1] * scale_percent / 100)
         height = int(frame.shape[0] * scale_percent / 100)
         dim = (width, height)
         frame = cv.resize(frame, dim, cv.INTER_LINEAR)
           # resize image
-
+'''
         frame = frame_processor(frame)
         if frame is not None:    
         # Encode the grayscale frame
