@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Main Page</title>
+  <script>
+   let actionInterval;
+      // Function to send the action (like "fwd", "bwd") to the Flask server
+      function sendaction(action) {
+          fetch('/buttons', {
+              method: 'POST', headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ action: action })
+          })
+
+
+
+
+           }
+               function sendingaction(action) { //Sends the action every 500 milliseconds
+                   actionInterval = setInterval(() => sendaction(action), 500);
+       }
+
+       function stopsendingaction() {
+           clearInterval(actionInterval);
+       }
+   </script>
+</head>
+<body>
+   <h2>Chosen Network</h2>
+   <button onmousedown="sendingaction('fwd')" onmouseup="stopsendingaction()" onmouseleave="stopsendingaction()" style="width: 100px; height: 50px;">^</button>
+   <button onmousedown="sendingaction('bwd')" onmouseup="stopsendingaction()" onmouseleave="stopsendingaction()" style="width: 100px; height: 50px;">v</button>
+   <button onmousedown="sendingaction('left')" onmouseup="stopsendingaction()" onmouseleave="stopsendingaction()" style="width: 100px; height: 50px;">&lt;</button>
+   <button onmousedown="sendingaction('right')" onmouseup="stopsendingaction()" onmouseleave="stopsendingaction()" style="width: 100px; height: 50px;">&gt;</button>
+   <button onmousedown="stopsendingaction()" onmouseup="stopsendingaction()" onmouseleave="stopsendingaction()" style="width: 100px; height: 50px;">Stop</button>
+</body>
+</html>
