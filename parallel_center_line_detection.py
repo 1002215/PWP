@@ -1,16 +1,139 @@
+'''Emma Chetan PWP Image Overlay Project Q3
+
+The program will begin by taking in a live video stream and applying image processing to each frame. First, 
+each frame shall be blurred using Gaussian blur, reducing the noise in the image and making it easier to process
+in further steps. Each frame shall be converted into Hue, saturation, and Value (HSV) color space using an OpenCV 
+function, allowing for the differentiation of colors based on their brightness. Since the lines of the road are 
+all either yellow or white in the United States, OpenCV will be harnessed to create a mask so the program only 
+executes on spaces detected as white or yellow. This is done by defining the upper and lower HSV values of white
+and yellow. The frame is converted to grayscale to help simplify any algorithms applied from here on out. Canny
+edge detection is then utilized, returning the edges of the image. Afterward, the program will invoke a triangular
+region of interest to reduce noise and focus on the road lines. This mimics the perspective of a car driving down a road.
+
+This region of interest will be altered to apply perspective transform. Perspective transform straightens objects that were
+recorded at an angle, correcting any distortions as a result of the perspective. This will return an image of the lane 
+lines as two straight lines, making it much easier to process and detect. Hough transform will be exercised, detecting any 
+straight lines, even accounting for slight distortion. Using the points returned by the Hough function, the lines will be 
+grouped and drawn in red based on their slope and intercept. The lane lines have been detected and drawn on the original frame. 
+The Guo Hall skeletonizing algorithm will use these two lines and draw a pixel-wide centerline between them. Using polyfit., 
+the pixels can be used to draw the complete centerline in green on the original frame. This iterates for each frame processed 
+by the camera. For the compass rose, trigonometry will determine the direction of the vehicle. A right triangle will be drawn 
+with the hypotenuse being the centerline. Using the angle of elevation and the tangent function, the exact degree can be 
+calculated. The quadrant the angle is in will determine the direction. For example, if the degree measures about 10°, then 
+it is apparent that the vehicle is turning right since the degree measure will be in the first quadrant close to the x-axis.
+
+'''
+
+
 import cv2 as cv
 import numpy as np
 import math
+import logging
+from datetime import datetime
 from PIL import Image
-from flask import Flask, request, jsonify, render_template, redirect, url_for, Response
-from VideoCamera import *
+import requests
+from flask import Flask, request, jsonify, render_template, redirect, Response
 
-# Emma Chetan Parallel Line and Finding Center Line PWP H
-# Kernel size 3
+
 
 app = Flask(__name__, template_folder="templates")
-# Return the average slope and average intercept given an array of tuples with format (index, slope, intercept)
+
+
+
+# Reads the file and appends information to a list.
+with open("filename.txt", "r") as f:
+    log_messages = []
+    for line in f:
+        log_messages.append(line.strip())
+
+
+
+def save_list(lst, filename="filename.txt"):
+    """Write a given list on a given file."""
+    with open(filename, "w") as f:
+        for item in lst:
+            f.write(f"{item}\n")
+
+
+
+def log_action(message):
+    logging.info(message)
+    log_messages.append(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}")
+    save_list(log_messages)
+
+
+
+def send_request(url):  
+   x = requests.post(url)
+   return x
+
+
+
+@app.route('/logs', methods=['GET'])
+def get_logs():
+    return jsonify(log_messages)
+
+
+
+@app.route('/buttons', methods=['GET', 'POST'])
+def buttons():
+    """
+       Listens for POST requests at /buttons and performs different
+       actions depending on the button pressed by the user.
+       It also logs each action.
+    """
+    if request.method == 'POST':
+       # Get JSON data from the buttons
+       jsondata = request.get_json()
+       action = jsondata.get('action')
+       if action == 'fwd':
+           send_request('http://192.168.240.20:5123/fwd')
+           log_action(request)
+       if action == 'bwd':
+           send_request('http://192.168.240.20:5123/bwd')
+           log_action(request)
+       if action == 'right':
+           send_request('http://192.168.240.20:5123/right')
+           log_action(request)
+       if action == 'left':
+           send_request('http://192.168.240.20:5123/left')
+           log_action(request)
+       if action == 'stop':
+           send_request('http://192.168.240.20:5123/stop')
+           log_action(request)
+    return render_template('buttons.html') # Use the buttons html file for the aesthetics
+   
+
+
+@app.route('/logs', methods = ['GET', 'POST'])
+def console():
+    "Show the front end displaying the logs on the console."
+    return render_template('logs.html')
+    
+
+
+@app.route('/screen/', methods = ['GET', 'POST'])
+def screen():
+    """
+        Show the screen separating the webite into four parts: one with the buttons, 
+        one with the console log, and the rest as placeholders.
+    """
+    return render_template('screen.html')
+
+
+
 def average_slope_intercept(lines_si):
+    """
+        Arguments: 
+        lines_si, where each index is a tuple with the index, slope, 
+        and intercept, of a line. (index, slope, intercept)
+
+        Returns: 
+        The average slope and intercept of the given list of line
+        slopes and intercepts.
+ 
+    """
+
     average_slope = 0
 
     average_intercept = 0
@@ -26,10 +149,19 @@ def average_slope_intercept(lines_si):
     return average_slope / len(lines_si), average_intercept / len(lines_si)
 
 
-# Return the coordinates of the points for the extremes of each line.
-# Function takes in lines_si, an array of tuples of form (index, slope, intercept), vertical lines is True or False
-# Function takes in an array of lines given by the Hough line detection (lines)
+
 def points(img, lines_si, lines, vertical_lines):
+    """
+        Arguments:
+        img, an image of NumPy array format. 
+        lines_si, an array of tuples of form (index, slope, intercept) with
+        each index representing a different line.
+        vertical_lines is True or False.
+
+        Returns:
+        Return the coordinates of the points for the start and end of the lines.
+
+    """
     if len(lines_si) == 0:
         return None
 
@@ -44,7 +176,7 @@ def points(img, lines_si, lines, vertical_lines):
     else:
         x1 = 0
         x2 = img.shape[1]
-        # Calculate the y coordinate using a line equation: y = mx + b
+        # Calculate the y coordinate using the line equation: y = mx + b
         y1 = slope * x1 + intercept
 
         y2 = slope * x2 + intercept
@@ -52,41 +184,54 @@ def points(img, lines_si, lines, vertical_lines):
         return ((int(x1), int(y1)), (int(x2), int(y2)))
 
 
-# Return all the highest and lowest coordinates of each extreme detected by Hough lines
-# Function takes in an array of lines given by the Hough line detection (lines)
-# Function takes in an array of tuples of form (index, slope, intercept), vertical lines is Bool (lines_si)
+
 def extremes_for_lines(lines_si, lines):
+    """
+        Arguments:
+        lines_si, an array of tuples of form (index, slope, intercept) with
+        each index representing a different line.
+        lines, array of lines given by the Hough line detection.
+
+        Returns:
+        Return all the highest and lowest coordinates of each extreme detected by Hough lines.
+
+    """
     # List of all x coordinates for all extremes of each Hough line detected
     xes = []
-    # List of all x coordinates for all extremes of each Hough line detected
+    # List of all y coordinates for all extremes of each Hough line detected
     ys = []
 
     for l in lines_si:
         idx = l[0]
-        # Uses the index to find the x coordinates of all extremes of each Hough line detected, same procedure for y
+        # Uses the index to find the x coordinates of all extremes of each Hough line detected, 
+        # same procedure for y
         x1, x2 = lines[idx][0][0], lines[idx][0][2]
-
         y1, y2 = lines[idx][0][1], lines[idx][0][3]
-
         xes.append(x1)
-
         xes.append(x2)
-
         ys.append(y1)
-
         ys.append(y2)
-    # Find all the highest and lowest extremes of each coordinate
+    
     min_x = min(xes)
-
     max_x = max(xes)
-
     min_y = min(ys)
-
     max_y = max(ys)
 
     return min_x, max_x, min_y, max_y
 
 def perspective_transform(img):
+    """
+        Transforms a road image to a birds-eye view.
+    
+        Argument:
+        img, an image of the NumPy array format.
+
+        Returns:
+        Returns the image with perspective transform applied, warped
+        Returns the inverse matrix that allows for reversal
+        of transformation.
+
+    """
     img_size = (img.shape[1], img.shape[0])
     offset = 300
     src = np.float32([
@@ -108,20 +253,28 @@ def perspective_transform(img):
     warped = cv.warpPerspective(img, M, img_size)
 
     return warped, M_inv
-# Return the points needed to draw the upper, lower, and center lines
-# Function takes in an array of lines given by the Hough line detection
+
+
+
 def make_lines(img, lines):
-    # Format (index, slope, intercept), si standing for slope intercept
+    """
+        Generates the points for the right and left lanes as
+        well as the centerline for drawing.
+
+        Arguments:
+        img, an image of the NumPy array format.
+        A list returned by the OpenCV Hough Lines transformation.
+
+        Returns:
+        Points of left lane (l_points), right lane, and centerline needed
+        for line drawing. 
+    """
+    
     line_si = []
-    # Format (index, slope, intercept), si standing for slope intercept
     vertical_line_si = []
-
     vertical_lines = False
-
     upper_line = []
-
     lower_line = []
-
     idx = 0
 
     if lines is None:
@@ -132,71 +285,65 @@ def make_lines(img, lines):
             fit = np.polyfit((x1, x2), (y1, y2), 1)
             # Case if the line is vertical
             if abs(x1 - x2) < 9:
-                # To avoid dealing with an undefined slope, rotate the vertical lines into horizontal lines. Switch back the points later on.
+                # To avoid dealing with an undefined slope, rotate the 
+                # vertical lines into horizontal lines. 
+                # Switch back the points later on.
                 slope = 0
-
                 intercept = x1
-
                 vertical_line_si.append((idx, slope, intercept))
 
             else:
-                # Equation to calculate slope
                 slope = fit[0]
-                # Calculating intercept of a line using line equation: y = mx + b
                 intercept = fit[1]
 
             line_si.append((idx, slope, intercept))
 
         idx += 1
-    # Case determining whether the lines are vertical
+    
+    # Case determining whether the lines are vertical by evaluating
+    # whether the majority of lines are vertical
     if len(vertical_line_si) > len(lines) / 2:
         line_si = vertical_line_si
-
         vertical_lines = True
 
     m_slope, m_intercept = average_slope_intercept(line_si)
-    # Group each line detected into upper or lower lines based on their position above or below the average x intercept.
+    # Group each line detected into upper or lower lines based on their 
+    # position above or below the average x intercept.
     for l in line_si:
 
         if m_intercept > l[2]:
-
             lower_line.append(l)
-        else:
 
+        else:
             upper_line.append(l)
 
     u_points = points(img, upper_line, lines, vertical_lines)
-
     l_points = points(img, lower_line, lines, vertical_lines)
-
     c_points = points(img, line_si, lines, vertical_lines)
 
     if l_points != None and u_points != None and c_points != None:
 
         x1, y1, x2, y2 = u_points[0][0], u_points[0][1], u_points[1][0], u_points[1][1]
-
         X1, Y1, X2, Y2 = l_points[0][0], l_points[0][1], l_points[1][0], l_points[1][1]
+
         # Center coordinates
         mx1 = int(x1 + X1) / 2
-
         my1 = int(y1 + Y1) / 2
-
         mx2 = int(x2 + X2) / 2
-
         my2 = int(y2 + Y2) / 2
 
         min_x, max_x, min_y, max_y = extremes_for_lines(line_si, lines)
 
         m1, b1 = average_slope_intercept(upper_line)
-
         m2, b2 = average_slope_intercept(lower_line)
+
         # Case if the upper and lower lines are not parallel
         if abs(m1 - m2) >0.5:
-            # Normalization
+            # Given two line equations, the normalization of lines
+            # can be used to determine the slope and intercept of the centerline.
+            # Equation is n = 1/(sqrt{m^2+1})
             n1 = 1 / (math.sqrt(m1 * m1 + 1))
-
             n2 = 1 / (math.sqrt(m2 * m2 + 1))
-
             center_slope = (n2 * m2 - n1 * m1) / (n2 - n1)
 
             if m1 > m2:
@@ -205,15 +352,11 @@ def make_lines(img, lines):
             center_intercept = (n2 * b2 - n1 * b1) / (n2 - n1)
 
             mx1 = min_x
-
             mx2 = max_x
-
             my1 = mx1 * center_slope + center_intercept
-
             my2 = mx2 * center_slope + center_intercept
 
             c_points = ((int(mx1), int(my1)), (int(mx2), int(my2)))
-
 
         else:
             c_points = ((int(mx1), int(my1)), (int(mx2), int(my2)))
@@ -221,9 +364,24 @@ def make_lines(img, lines):
     return u_points, l_points, c_points
 
 
-# Using points of the form ((x1, y1), (x2, y2)) representing each line, draw the line
-# Function takes in the image, array of Hough lines detected, color of the parallel lines, and line thickness
+
 def draw_lines(image, lines, color=[0, 0, 255], thickness=12):
+
+    """
+        Use the given lines to draw the red lane lines and the green
+        centerline on a given image.
+
+        Arguments:
+        img, an image of the NumPy array format.
+        lines, list of points of the form ((x1, y1), (x2, y2)) representing each line. Returned 
+        by make_lines.
+        color is set to red and the thickness is set to 12.
+
+        Returns:
+        Returns the NumPy formatted image with the red lane lines drawn and the green
+        centerline drawn.
+    """
+
     line_image = np.zeros_like(image)
 
     if lines is None:
@@ -241,194 +399,209 @@ def draw_lines(image, lines, color=[0, 0, 255], thickness=12):
                 pass
 
             else:
-
                 cv.line(line_image, *line, color, thickness)
 
-
         else:
-
             continue
 
     return cv.addWeighted(image, 1.0, line_image, 1.0, 0.0)
 
+
+
 def make_mask(img):
+    """ Create a mask used for filtering white and yellow objects in a given image."""
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
     yellow_lower = np.array([10, 100, 100])
     yellow_upper = np.array([30, 255, 255])
+
     mask_yellow = cv.inRange(hsv, yellow_lower, yellow_upper)
+
     lower_white = np.array([0, 0, 237])
     upper_white = np.array([255, 50, 255])
-    # yellow_output = cv.bitwise_and(img, img, mask=mask_yellow)
+
     mask_white = cv.inRange(hsv, lower_white, upper_white)
+    # Combine the white and yellow mask into one mask.
     mask_yw = cv.bitwise_or(mask_white, mask_yellow)
-    cv.imshow("yw", mask_yw)
 
     return mask_yw
 
+
+
 def roi(img):
+    """ Create a region of interest in the shape of a triangle."""
     height = img.shape[0]
     width = img.shape[1]
+
+    # Coordinates for vertices.
     lower_left = (0-350, height)
     lower_right = (width+300, height)
     top_left = (width - 300, int(height / 1.5))
-    #cv.imshow("canny", canny_img)
 
-    vertices = np.array([[lower_left, lower_right, top_left]], dtype=np.int32)
+    vertices = np.array([[lower_left, 
+                          lower_right, 
+                          top_left]], dtype=np.int32)
 
     mask = np.zeros_like(img)
 
     ROI = cv.fillPoly(mask, vertices, (255, 255, 255))
-    #cv.imshow("ROI", ROI)
 
     region_of_interest = cv.bitwise_and(img, ROI)
 
     return region_of_interest, vertices
 
+
+
 def paste_arrow(frame, arrow_img):
+    "Paste a given arrow image onto the frame."
     frame_pil = Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB)).convert("RGBA")
     frame_pil.paste(arrow_img, (0, 0), mask=arrow_img)
     frame_bgr = cv.cvtColor(np.array(frame_pil), cv.COLOR_RGBA2BGR)
+
     return frame_bgr
 
+
+
 def frame_processor(img):
+    """
+        This is the main pipeline for the image overlay. frame_processor
+        adds an image overlay with red lane lines and a green centerline on a road.
+
+        Argument:
+        img, an image or frame to be processed.
+
+        Returns:
+        An image of NumPy format with the red lane lines and green centerline drawn.
+    """
     img = cv.rotate(img, cv.ROTATE_90_COUNTERCLOCKWISE)
     img = cv.resize(img, (540,960))
     rows, columns = img.shape[0], img.shape[1]
     img = img[10:rows - 200, 10:columns - 10]
-    #warped, M_inv = perspective_transform(img)
-    #cv.imshow("warp", warped)
-
-    # mask_yw_image = cv.bitwise_and(img, img, mask_yw)
-    
-    #idk = draw_lines(img, make_lines(img, lines))
-    #warp_zero = np.zeros_like(idk).astype(np.uint8)
-    #color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    #newwarp = cv.warpPerspective(color_warp, M_inv, (img.shape[1], img.shape[0]))
-    #out_img = cv.addWeighted(img, 1, newwarp, 0.3, 0)
-    #cv.imshow("idk", out_img)
-    # canny_img = cv.Canny(img, 50, 200, None, 3)
-    # https://www.learningaboutelectronics.com/Articles/Region-of-interest-in-an-image-Python-OpenCV.php used to create a square region of interest
 
     region_of_interest, vertices = roi(img)
-    #cv.imshow("roi", region_of_interest)
+    
     mask_yw = make_mask(region_of_interest)
 
     canny_img = cv.Canny(mask_yw, 50, 200, None, 3)
 
     lines = cv.HoughLinesP(canny_img, 1, np.pi / 180, 50, None, 50, 10)
+
+    # Get points of right lane line, left lane line, and centerline
     last_lines = make_lines(img, lines)
+
     if last_lines != None :
+
+        # Points of the centerline are the last index
         c_points = last_lines[-1]
-    #final = draw_lines(img, make_lines(img, lines))
 
         if c_points != None:
             ((x1, y1), (x2, y2)) = c_points
+
+            # Create vectors to determine direction of the y-coordinates
+            # and x-coordinates for inverse tangent.
             diry = y2 - y1
             dirx = x2 - x1
+
+            # atan2 is the math library's inverse tangent function.
             angle = math.atan2(diry, dirx)
+
+            # If the value is negative, the direction of left or right will be
+            # flipped due to unit circle properties.
             negative = False
+
             if angle < 0:
                 angle += math.pi
                 negative = True
+
             if angle > math.pi/4 and angle < 3*math.pi/4:
                 if negative :
                     dir = "up"
                 else:
                     dir = "up"
+
             elif angle > 3*math.pi/4:
                 if negative :
                     dir = "right"
                 else:
-                    dir = "left"               
+                    dir = "left"  
+
             elif angle < math.pi/4:
                 if negative :
                     dir = "right"
                 else:
                     dir = "left" 
+
             else:
                 dir = "up"
 
             img = paste_arrow(img, arrows[dir])
+
     final = draw_lines(img, make_lines(img, lines))
 
-    # https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html used to draw the outline of the region of interest
-    final = cv.polylines(final, [vertices], True, (0, 0, 255), 1)
-
     return final
+
 
 
 arrows ={"up": "up.png", 
           "left": "left.png",
           "right": "right.png"}
+
 for arrow in arrows:
     img = Image.open(arrows[arrow]).convert("RGBA")
     arrows[arrow] = img.resize((100,100))
 
   
 
-# position = (400,0)
-
-# Pasting img2 image on top of img1
-# starting at coordinates (0, 0)
-
-
-# https://stackoverflow.com/questions/2601194/displaying-a-webcam-feed-using-opencv-and-python/11449901#11449901 used to display the webcam feed and lines
 camera = cv.VideoCapture("Video.mov")
-#img = cv.imread("road3.jpg")
-#cv.namedWindow("Emma Chetan Parallel and Centerline Detection PWP")
+
 def normal_video():
+    """Encode each frame of a constant, raw video stream."""
     while True:
 
         success, frame = camera.read()
         if not success:
             break
-        '''scale_percent = 30 # percent of original size
-        width = int(frame.shape[1] * scale_percent / 100)
-        height = int(frame.shape[0] * scale_percent / 100)
-        dim = (width, height)
-        frame = cv.resize(frame, dim, cv.INTER_LINEAR)'''
+
         frame = cv.rotate(frame, cv.ROTATE_90_COUNTERCLOCKWISE)
         if frame is not None:    
         # Encode the grayscale frame
             ret2, buffer2 = cv.imencode('.jpg', frame)
+
             if not ret2:
                 print("Error: Failed to encode grayscale frame")
                 break
             yield (b'--frame\r\n'
                     b'Content-Type: image/jpeg\r\n\r\n' + buffer2.tobytes() + b'\r\n')
-        # resize image
+
+
 
 def frames():
+    """Apply image overlay on each frame of a video stream and encode each frame."""
     while True:
 
         success, frame = camera.read()
+
         if not success:
             break
 
-        '''scale_percent = 30 # percent of original size
-        width = int(frame.shape[1] * scale_percent / 100)
-        height = int(frame.shape[0] * scale_percent / 100)
-        dim = (width, height)
-        frame = cv.resize(frame, dim, cv.INTER_LINEAR)
-          # resize image
-'''
         frame = frame_processor(frame)
         if frame is not None:    
-        # Encode the grayscale frame
+        # Encode the frame with image overlay.
             ret2, buffer2 = cv.imencode('.jpg', frame)
+
             if not ret2:
                 print("Error: Failed to encode grayscale frame")
                 break
             yield (b'--frame\r\n'
                     b'Content-Type: image/jpeg\r\n\r\n' + buffer2.tobytes() + b'\r\n')
         # resize image
+
+
 
 @app.route('/')
 def index():
    """Render the main webpage."""
-   return render_template('video.html')
-
+   return render_template('video_feed.html')
 
 
 
@@ -437,15 +610,15 @@ def color_feed():
    """Endpoint for the color video feed."""
    return Response(frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+
+
 @app.route('/gray_feed')
 def gray_feed():
    """Endpoint for the grayscale video feed."""
    return Response(normal_video(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-#Show the screen separating the webite into four parts: one with the buttons, one with the console log, and the rest as placeholders.
-@app.route('/screen/', methods = ['GET', 'POST'])
-def screen():
-    return render_template('screen.html')
 
-if __name__=="__main__": #Runs the API
-  app.run(host='127.0.0.1', debug=True, port=5000, use_reloader=False) #Where the API will be hosted, host will be updated to static raspberry pi ip address
+
+# Runs the API to access the webservers.
+if __name__=="__main__":
+  app.run(host='127.0.0.1', debug=True, port=5000, use_reloader=False)
